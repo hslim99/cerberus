@@ -58,17 +58,34 @@ class Music(commands.Cog):
             await interaction.response.send_message("먼저 음성 채널에 참가해주세요.", ephemeral=True)
             return
 
+        if len(self.queue) >= 10:
+            await interaction.response.send_message("대기열은 최대 10곡까지 가능합니다.", ephemeral=True)
+            return
+
         voice_channel = interaction.user.voice.channel
         vc = discord.utils.get(self.bot.voice_clients, guild=interaction.guild)
 
         if not vc or not vc.is_connected():
             vc = await voice_channel.connect()
 
-        self.queue.append(url)
+        await interaction.response.defer()
 
-        if not vc.is_playing():
-            await interaction.response.defer()
-            await self.play_next(vc, interaction)
+        # 유튜브에서 제목 미리 가져오기
+        try:
+            info = await asyncio.get_event_loop().run_in_executor(
+                None, lambda: ytdl.extract_info(url, download=False)
+            )
+            if 'entries' in info:
+                info = info['entries'][0]
+            title = info.get('title', '알 수 없는 제목')
+            self.queue.append((title, url))
+
+            if not vc.is_playing():
+                await self.play_next(vc, interaction)
+            else:
+                await interaction.followup.send(f"🎵 `{title}`을 재생 목록에 추가했어요!")
+        except Exception as e:
+            await interaction.followup.send(f"오류 발생: {e}", ephemeral=True)
 
     async def play_next(self, vc, interaction):
         def check_error(e):
@@ -77,7 +94,7 @@ class Music(commands.Cog):
                 asyncio.run_coroutine_threadsafe(interaction.followup.send(f"⚠️ 재생 중 오류 발생: {e}. 다음 곡으로 넘어갑니다."), self.bot.loop)
                 self.bot.loop.create_task(self.play_next(interaction.guild.id))
         while self.queue:
-            url = self.queue.pop(0)
+            title, url = self.queue.pop(0)
             for attempt in range(5):
                 try:
                     player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
@@ -90,13 +107,33 @@ class Music(commands.Cog):
                             print("🎶 재생이 종료되었습니다.")
 
                     vc.play(player, after=lambda e: check_error(e) if e else self.bot.loop.create_task(self.play_next(vc, interaction)))
-                    await interaction.followup.send(f"🎶 재생 중: **{player.title}**")
+                    await interaction.followup.send(f"🎶 재생 중: **{title}**")
                     return
                 except Exception as e:
                     if attempt < 4:
                         await asyncio.sleep(3)
                     else:
                         await interaction.followup.send(f"오류 발생: {e}")
+
+    @app_commands.command(name="queue", description="현재 대기열을 확인합니다.")
+    async def queue_command(self, interaction: discord.Interaction):
+        if not self.queue:
+            await interaction.response.send_message("🎵 대기열이 비어 있습니다.")
+            return
+
+        display = ""
+        for i, (title, _) in enumerate(self.queue[:10]):
+            display += f"{i+1}. {title}\n"
+        await interaction.response.send_message(f"🎶 현재 대기열:\n{display}")
+
+    @app_commands.command(name="remove", description="대기열에서 특정 곡을 제거합니다.")
+    @app_commands.describe(index="제거할 곡 번호 (1부터 시작)")
+    async def remove_command(self, interaction: discord.Interaction, index: int):
+        if index < 1 or index > len(self.queue):
+            await interaction.response.send_message("❌ 유효하지 않은 번호입니다.", ephemeral=True)
+            return
+        title, url = self.queue.pop(index - 1)
+        await interaction.response.send_message(f"🗑️ `{title}`을 대기열에서 제거했어요.")
 
     @app_commands.command(name="leave", description="봇을 음성 채널에서 나가게 합니다.")
     async def leave(self, interaction: discord.Interaction):
