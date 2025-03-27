@@ -112,11 +112,6 @@ class Music(commands.Cog):
             await interaction.followup.send(f"오류 발생: {e}", ephemeral=True)
 
     async def play_next(self, vc, interaction):
-        def check_error(e):
-            if e:
-                print(f"플레이 중 오류 발생: {e}")
-                asyncio.run_coroutine_threadsafe(interaction.followup.send(f"⚠️ 재생 중 오류 발생: {e}. 다음 곡으로 넘어갑니다."), self.bot.loop)
-                self.bot.loop.create_task(self.play_next(interaction.guild.id))
         while self.queue:
             if self.force_stop:
                 return
