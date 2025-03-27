@@ -3,7 +3,6 @@ from discord import app_commands
 from discord.ext import commands
 import yt_dlp
 import asyncio
-import subprocess
 import json
 
 # yt-dlp 설정
@@ -76,10 +75,13 @@ class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.queue = []
+        self.force_stop = False
 
     @app_commands.command(name="play", description="유튜브 링크로 음악을 재생합니다.")
     @app_commands.describe(url="유튜브 비디오 URL")
     async def play(self, interaction: discord.Interaction, url: str):
+        self.force_stop = False
+
         if not interaction.user.voice or not interaction.user.voice.channel:
             await interaction.response.send_message("먼저 음성 채널에 참가해주세요.", ephemeral=True)
             return
@@ -115,19 +117,26 @@ class Music(commands.Cog):
                 asyncio.run_coroutine_threadsafe(interaction.followup.send(f"⚠️ 재생 중 오류 발생: {e}. 다음 곡으로 넘어갑니다."), self.bot.loop)
                 self.bot.loop.create_task(self.play_next(interaction.guild.id))
         while self.queue:
+            if self.force_stop:
+                return
+
             title, url = self.queue.pop(0)
             for attempt in range(5):
                 try:
                     player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
 
                     def after_play(err):
+                        if self.force_stop:
+                            return
                         if err:
                             print(f"오류 발생: {err}")
-                        if vc and vc.is_connected():
-                            vc.stop()  # FFmpeg 프로세스 완전 종료
-                            print("🎶 재생이 종료되었습니다.")
+                            asyncio.run_coroutine_threadsafe(
+                                interaction.followup.send(f"⚠️ 재생 중 오류 발생: {err}. 다음 곡으로 넘어갑니다."),
+                                self.bot.loop
+                            )
+                        self.bot.loop.create_task(self.play_next(vc, interaction))
 
-                    vc.play(player, after=lambda e: check_error(e) if e else self.bot.loop.create_task(self.play_next(vc, interaction)))
+                    vc.play(player, after=after_play)
                     await interaction.followup.send(f"🎶 재생 중: **{title}**")
                     return
                 except Exception as e:
@@ -162,6 +171,11 @@ class Music(commands.Cog):
         if not vc or not vc.is_connected():
             await interaction.response.send_message("봇이 음성 채널에 있지 않습니다.", ephemeral=True)
             return
+        self.force_stop = True
+        self.queue.clear()
+        if vc.is_playing():
+            vc.stop()
+            await asyncio.sleep(0.5)
         await vc.disconnect()
         await interaction.response.send_message("👋 음성 채널에서 나왔습니다.")
 
