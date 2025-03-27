@@ -20,6 +20,7 @@ ytdl_format_options = {
 }
 
 ffmpeg_options = {
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'options': '-vn'
 }
 
@@ -48,6 +49,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.queue = []
 
     @app_commands.command(name="play", description="유튜브 링크로 음악을 재생합니다.")
     @app_commands.describe(url="유튜브 비디오 URL")
@@ -62,13 +64,39 @@ class Music(commands.Cog):
         if not vc or not vc.is_connected():
             vc = await voice_channel.connect()
 
-        try:
+        self.queue.append(url)
+
+        if not vc.is_playing():
             await interaction.response.defer()
-            player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
-            vc.play(player, after=lambda e: print(f'플레이 종료: {e}') if e else None)
-            await interaction.followup.send(f"🎶 재생 중: **{player.title}**")
-        except Exception as e:
-            await interaction.followup.send(f"오류 발생: {e}")
+            await self.play_next(vc, interaction)
+
+    async def play_next(self, vc, interaction):
+        def check_error(e):
+            if e:
+                print(f"플레이 중 오류 발생: {e}")
+                asyncio.run_coroutine_threadsafe(interaction.followup.send(f"⚠️ 재생 중 오류 발생: {e}. 다음 곡으로 넘어갑니다."), self.bot.loop)
+                self.bot.loop.create_task(self.play_next(interaction.guild.id))
+        while self.queue:
+            url = self.queue.pop(0)
+            for attempt in range(5):
+                try:
+                    player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
+
+                    def after_play(err):
+                        if err:
+                            print(f"오류 발생: {err}")
+                        if vc and vc.is_connected():
+                            vc.stop()  # FFmpeg 프로세스 완전 종료
+                            print("🎶 재생이 종료되었습니다.")
+
+                    vc.play(player, after=lambda e: check_error(e) if e else self.bot.loop.create_task(self.play_next(vc, interaction)))
+                    await interaction.followup.send(f"🎶 재생 중: **{player.title}**")
+                    return
+                except Exception as e:
+                    if attempt < 4:
+                        await asyncio.sleep(3)
+                    else:
+                        await interaction.followup.send(f"오류 발생: {e}")
 
     @app_commands.command(name="leave", description="봇을 음성 채널에서 나가게 합니다.")
     async def leave(self, interaction: discord.Interaction):
