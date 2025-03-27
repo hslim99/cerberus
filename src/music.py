@@ -3,6 +3,8 @@ from discord import app_commands
 from discord.ext import commands
 import yt_dlp
 import asyncio
+import subprocess
+import json
 
 # yt-dlp 설정
 ytdl_format_options = {
@@ -25,6 +27,30 @@ ffmpeg_options = {
 }
 
 ytdl = yt_dlp.YoutubeDL(ytdl_format_options)
+
+
+async def get_title_from_url_cli(url: str) -> str:
+    try:
+        process = await asyncio.create_subprocess_exec(
+            "yt-dlp", "-j", url,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+
+        stdout, stderr = await process.communicate()
+
+        if process.returncode != 0:
+            raise Exception(stderr.decode().strip())
+
+        data = json.loads(stdout)
+        if "title" in data:
+            return data["title"]
+        elif "entries" in data and isinstance(data["entries"], list):
+            return data["entries"][0].get("title", "알 수 없는 제목")
+        else:
+            return "알 수 없는 제목"
+    except Exception as e:
+        return f"(제목 추출 실패: {e})"
 
 
 class YTDLSource(discord.PCMVolumeTransformer):
@@ -72,12 +98,7 @@ class Music(commands.Cog):
 
         # 유튜브에서 제목 미리 가져오기
         try:
-            info = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: ytdl.extract_info(url, download=False)
-            )
-            if 'entries' in info:
-                info = info['entries'][0]
-            title = info.get('title', '알 수 없는 제목')
+            title = await get_title_from_url_cli(url)
             self.queue.append((title, url))
 
             if not vc.is_playing():
