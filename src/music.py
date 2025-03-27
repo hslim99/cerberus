@@ -75,6 +75,7 @@ class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.queue = []
+        self.current = None
         self.force_stop = False
 
     @app_commands.command(name="play", description="유튜브 링크로 음악을 재생합니다.")
@@ -121,6 +122,7 @@ class Music(commands.Cog):
                 return
 
             title, url = self.queue.pop(0)
+            self.current = (title, url)
             for attempt in range(5):
                 try:
                     player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
@@ -147,6 +149,8 @@ class Music(commands.Cog):
 
     @app_commands.command(name="queue", description="현재 대기열을 확인합니다.")
     async def queue_command(self, interaction: discord.Interaction):
+        text = self.get_now_playing_text() + "\n\n"
+
         if not self.queue:
             await interaction.response.send_message("🎵 대기열이 비어 있습니다.")
             return
@@ -178,6 +182,18 @@ class Music(commands.Cog):
             await asyncio.sleep(0.5)
         await vc.disconnect()
         await interaction.response.send_message("👋 음성 채널에서 나왔습니다.")
+
+    def get_now_playing_text(self):
+        if self.current:
+            title, _ = self.current
+            return f"🎶 현재 재생 중: **{title}**"
+        else:
+            return "현재 재생 중인 곡이 없습니다."
+
+    @app_commands.command(name="nowplaying", description="현재 재생 중인 곡을 표시합니다.")
+    async def nowplaying(self, interaction: discord.Interaction):
+        text = self.get_now_playing_text()
+        await interaction.response.send_message(text)
 
 
 async def init_music(bot):
