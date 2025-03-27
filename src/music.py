@@ -78,6 +78,52 @@ class Music(commands.Cog):
         self.current = None
         self.force_stop = False
 
+    async def leave_channel(self, guild: discord.Guild, interaction: discord.Interaction = None):
+        vc = discord.utils.get(self.bot.voice_clients, guild=guild)
+        if not vc or not vc.is_connected():
+            return
+
+        if vc.is_playing():
+            vc.stop()
+            await asyncio.sleep(0.3)
+
+        self.queue.clear()
+        self.current = None
+        self.force_stop = True
+
+        await vc.disconnect()
+        if interaction:
+            await interaction.response.send_message("👋 음성 채널에서 나왔습니다.")
+
+    async def check_and_leave_if_alone(self, guild: discord.Guild, channel: discord.VoiceChannel):
+        print('확인 중...')
+        await asyncio.sleep(10)
+
+        vc = discord.utils.get(self.bot.voice_clients, guild=guild)
+        if not vc or not vc.is_connected():
+            return
+
+        if vc.channel != channel:
+            return  # 이미 채널을 옮겼거나 나갔으면 무시
+
+        members = [m for m in channel.members if not m.bot]
+        if len(members) == 0:
+            await self.leave_channel(guild)
+
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member, before, after):
+        # 봇일 경우 무시
+        if member.bot:
+            return
+
+        # 사용자가 퇴장하거나 채널 이동한 경우
+        if before.channel and before.channel != after.channel:
+            # 봇이 해당 채널에 있는지 확인
+            vc = discord.utils.get(self.bot.voice_clients, guild=member.guild)
+            if vc and vc.channel == before.channel:
+                # 10초 후 확인
+                self.bot.loop.create_task(self.check_and_leave_if_alone(member.guild, before.channel))
+
     @app_commands.command(name="play", description="유튜브 링크로 음악을 재생합니다.")
     @app_commands.describe(url="유튜브 비디오 URL")
     async def play(self, interaction: discord.Interaction, url: str):
@@ -141,6 +187,23 @@ class Music(commands.Cog):
                         await asyncio.sleep(3)
                     else:
                         await interaction.followup.send(f"오류 발생: {e}")
+        if not self.queue:
+            await self.leave_channel(interaction.guild)
+
+    @app_commands.command(name="skip", description="현재 재생 중인 곡을 스킵합니다.")
+    async def skip(self, interaction: discord.Interaction):
+        vc = discord.utils.get(self.bot.voice_clients, guild=interaction.guild)
+
+        if not vc or not vc.is_connected():
+            await interaction.response.send_message("봇이 음성 채널에 있지 않습니다.", ephemeral=True)
+            return
+
+        if not vc.is_playing():
+            await interaction.response.send_message("현재 재생 중인 곡이 없습니다.", ephemeral=True)
+            return
+
+        await interaction.response.send_message("⏭️ 현재 곡을 스킵했어요!")
+        vc.stop()
 
     @app_commands.command(name="queue", description="현재 대기열을 확인합니다.")
     async def queue_command(self, interaction: discord.Interaction):
@@ -166,17 +229,7 @@ class Music(commands.Cog):
 
     @app_commands.command(name="leave", description="봇을 음성 채널에서 나가게 합니다.")
     async def leave(self, interaction: discord.Interaction):
-        vc = discord.utils.get(self.bot.voice_clients, guild=interaction.guild)
-        if not vc or not vc.is_connected():
-            await interaction.response.send_message("봇이 음성 채널에 있지 않습니다.", ephemeral=True)
-            return
-        self.force_stop = True
-        self.queue.clear()
-        if vc.is_playing():
-            vc.stop()
-            await asyncio.sleep(0.5)
-        await vc.disconnect()
-        await interaction.response.send_message("👋 음성 채널에서 나왔습니다.")
+        await self.leave_channel(interaction.guild, interaction)
 
     def get_now_playing_text(self):
         if self.current:
