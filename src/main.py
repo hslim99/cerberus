@@ -22,9 +22,10 @@ class MyBot(commands.Bot):
         super().__init__(command_prefix="/", intents=intents)
 
     async def setup_hook(self):
+        guild = discord.Object(id=int(os.getenv('GUILD_ID')))
         init_log(self)
         await init_music(self)
-        await self.tree.sync(guild=None)
+        await self.tree.sync(guild=guild)
         print("✅ Slash 명령어 동기화 완료!")
 
 
