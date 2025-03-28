@@ -294,7 +294,7 @@ class Music(commands.Cog):
 
     def get_now_playing_text(self):
         if self.current:
-            title, url = self.current
+            title, url, _ = self.current
             return f"🎶 현재 재생 중: **[{title}]({url})**"
         else:
             return "현재 재생 중인 곡이 없습니다."
