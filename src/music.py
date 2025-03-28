@@ -69,7 +69,8 @@ async def get_title_from_url_cli(url: str) -> str:
         else:
             return "알 수 없는 제목"
     except Exception as e:
-        return f"(제목 추출 실패: {e})"
+        print(f"(제목 추출 실패: {e})")
+        return url
 
 
 class YTDLSource(discord.PCMVolumeTransformer):
@@ -82,10 +83,16 @@ class YTDLSource(discord.PCMVolumeTransformer):
     @classmethod
     async def from_url(cls, url, *, loop=None, stream=False):
         loop = asyncio.get_event_loop()
-        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
 
-        if 'entries' in data:
-            data = data['entries'][0]
+        def extract():
+            print("[DEBUG] cookiefile:", ytdl_format_options.get("cookiefile"))
+            with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
+                _data = ydl.extract_info(url, download=not stream)
+            if "entries" in _data:
+                _data = _data["entries"][0]
+            return _data
+
+        data = await loop.run_in_executor(None, extract)
 
         filename = data['url'] if stream else ytdl.prepare_filename(data)
         return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
