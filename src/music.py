@@ -8,6 +8,7 @@ import os
 from dotenv import load_dotenv
 import shutil
 import tempfile
+from utils import fix_netscape_cookie_format
 
 load_dotenv()
 
@@ -100,6 +101,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         if cookie_path and os.path.isfile(cookie_path):
             temp_cookie = tempfile.NamedTemporaryFile(delete=False, suffix=".txt")
             shutil.copyfile(cookie_path, temp_cookie.name)
+            fix_netscape_cookie_format(temp_cookie.name, temp_cookie.name)
             temp_cookie_path = temp_cookie.name
             ytdl_format_options["cookiefile"] = temp_cookie_path
         else:
