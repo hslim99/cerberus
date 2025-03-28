@@ -184,7 +184,7 @@ class Music(commands.Cog):
                 await self.play_next(vc, interaction)
             else:
                 await interaction.followup.send(
-                    f"🎵 `{title}`을 재생 목록에 추가했어요!"
+                    f"🎵 `[{title}]({url})`을 재생 목록에 추가했어요!"
                 )
         except Exception as e:
             await interaction.followup.send(f"오류 발생: {e}", ephemeral=True)
@@ -218,7 +218,7 @@ class Music(commands.Cog):
                         self.bot.loop.create_task(self.play_next(vc, interaction))
 
                     vc.play(player, after=after_play)
-                    await interaction.followup.send(f"🎶 재생 중: **{title}**")
+                    await interaction.followup.send(f"🎶 재생 중: **[{title}]({url})**")
                     return
                 except Exception as e:
                     if attempt < 4:
