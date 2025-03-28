@@ -1,14 +1,19 @@
-# Default ignored files
+.idea/
+!.idea/misc.xml
+!.idea/modules.xml
+!.idea/inspectionProfiles
+
+*.iml
+venv/
+__pycache__/
+*.pyc
+
 /shelf/
 /workspace.xml
-# Editor-based HTTP Client requests
 /httpRequests/
-# Datasource local storage ignored files
 /dataSources/
 /dataSources.local.xml
 
 .env
 images
-*.iml
-src/__pycache__
 cookies.txt
