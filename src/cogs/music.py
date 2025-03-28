@@ -184,11 +184,15 @@ class Music(commands.Cog):
             if not vc.is_playing():
                 await self.play_next(vc, interaction)
             else:
-                await interaction.followup.send(
-                    f"🎵 `[{title}]({url})`을 재생 목록에 추가했어요!"
+                await send_message(
+                    interaction,
+                    f"🎵 `[{title}]({url})`을 재생 목록에 추가했어요!",
+                    followup=True,
                 )
         except Exception as e:
-            await interaction.followup.send(f"오류 발생: {e}", ephemeral=True)
+            await send_message(
+                interaction, f"오류 발생: {e}", followup=True, ephemeral=True
+            )
         finally:
             self.playing_task = False
 
@@ -211,23 +215,30 @@ class Music(commands.Cog):
                         if err:
                             print(f"오류 발생: {err}")
                             asyncio.run_coroutine_threadsafe(
-                                interaction.followup.send(
-                                    f"⚠️ 재생 중 오류 발생: {err}. 다음 곡으로 넘어갑니다."
+                                send_message(
+                                    interaction,
+                                    f"⚠️ 재생 중 오류 발생: {err}. 다음 곡으로 넘어갑니다.",
+                                    followup=True,
                                 ),
                                 self.bot.loop,
                             )
                         self.bot.loop.create_task(self.play_next(vc, interaction))
 
                     vc.play(player, after=after_play)
-                    await interaction.followup.send(
-                        f"🎶 재생 중: **[{title}]({url})**", reference=None
+                    await send_message(
+                        interaction,
+                        f"🎶 재생 중: **[{title}]({url})**",
+                        followup=True,
+                        reference=None,
                     )
                     return
                 except Exception as e:
                     if attempt < 4:
                         await asyncio.sleep(3)
                     else:
-                        await interaction.followup.send(f"오류 발생: {e}")
+                        await send_message(
+                            interaction, f"오류 발생: {e}", followup=True
+                        )
         if not self.queue and not self.playing_task:
             await self.leave_channel(interaction.guild)
 
