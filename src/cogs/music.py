@@ -196,8 +196,8 @@ class Music(commands.Cog):
             if self.force_stop:
                 return
 
-            title, url, _ = self.queue.pop(0)
-            self.current = (title, url)
+            title, url, requested_user_id = self.queue.pop(0)
+            self.current = (title, url, requested_user_id)
             for attempt in range(5):
                 try:
                     player = await YTDLSource.from_url(
