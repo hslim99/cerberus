@@ -245,7 +245,7 @@ class Music(commands.Cog):
             )
             return
 
-        if self.has_permission(interaction, self.current, vc):
+        if Music.has_permission(interaction, self.current, vc):
             await interaction.response.send_message("⏭️ 현재 곡을 스킵했어요!")
             vc.stop()
         else:
@@ -279,7 +279,7 @@ class Music(commands.Cog):
             )
             return
         vc = discord.utils.get(self.bot.voice_clients, guild=interaction.guild)
-        if self.has_permission(interaction, self.queue[index - 1], vc):
+        if Music.has_permission(interaction, self.queue[index - 1], vc):
             title, url, _ = self.queue.pop(index - 1)
             await interaction.response.send_message(
                 f"🗑️ `[{title}]({url})`을 대기열에서 제거했어요."
