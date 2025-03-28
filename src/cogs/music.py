@@ -8,8 +8,7 @@ from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 
-from utils.cookie import (cleanup_temp_cookie, generate_temp_cookie,
-                          temp_cookie_path)
+from utils.cookie import cleanup_temp_cookie, generate_temp_cookie
 from utils.ytdl import ffmpeg_options, get_ytdl_options
 
 load_dotenv()
@@ -17,10 +16,11 @@ load_dotenv()
 
 async def get_title_from_url_cli(url: str) -> str:
     try:
-        cmd = ["yt-dlp"]
+        cookiefile = generate_temp_cookie()
 
-        if temp_cookie_path and os.path.isfile(temp_cookie_path):
-            cmd += ["--cookies", temp_cookie_path]
+        cmd = ["yt-dlp"]
+        if cookiefile and os.path.isfile(cookiefile):
+            cmd += ["--cookies", cookiefile]
 
         cmd += ["-j", url]
 
