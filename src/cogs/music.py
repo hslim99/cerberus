@@ -83,6 +83,7 @@ class Music(commands.Cog):
         self.queue = []
         self.current = None
         self.force_stop = False
+        self.playing_task = False
 
     async def leave_channel(
         self, guild: discord.Guild, interaction: discord.Interaction = None
@@ -136,6 +137,7 @@ class Music(commands.Cog):
     @app_commands.describe(url="유튜브 비디오 URL")
     async def play(self, interaction: discord.Interaction, url: str):
         self.force_stop = False
+        self.playing_task = True
 
         if not interaction.user.voice or not interaction.user.voice.channel:
             await interaction.response.send_message(
@@ -169,6 +171,8 @@ class Music(commands.Cog):
                 )
         except Exception as e:
             await interaction.followup.send(f"오류 발생: {e}", ephemeral=True)
+        finally:
+            self.playing_task = False
 
     async def play_next(self, vc, interaction):
         while self.queue:
@@ -204,7 +208,7 @@ class Music(commands.Cog):
                         await asyncio.sleep(3)
                     else:
                         await interaction.followup.send(f"오류 발생: {e}")
-        if not self.queue:
+        if not self.queue and not self.playing_task:
             await self.leave_channel(interaction.guild)
 
     @app_commands.command(name="skip", description="현재 재생 중인 곡을 스킵합니다.")
