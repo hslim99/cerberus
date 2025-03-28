@@ -237,8 +237,8 @@ class Music(commands.Cog):
             return
 
         display = ""
-        for i, (title, _) in enumerate(self.queue[:10]):
-            display += f"{i + 1}. {title}\n"
+        for i, (title, url) in enumerate(self.queue[:10]):
+            display += f"{i + 1}. [{title}]({url})\n"
         await interaction.response.send_message(
             f"{now_playing}🎶 현재 대기열:\n{display}"
         )
@@ -252,7 +252,9 @@ class Music(commands.Cog):
             )
             return
         title, url = self.queue.pop(index - 1)
-        await interaction.response.send_message(f"🗑️ `{title}`을 대기열에서 제거했어요.")
+        await interaction.response.send_message(
+            f"🗑️ `[{title}]({url})`을 대기열에서 제거했어요."
+        )
 
     @app_commands.command(name="leave", description="봇을 음성 채널에서 나가게 합니다.")
     async def leave(self, interaction: discord.Interaction):
@@ -260,8 +262,8 @@ class Music(commands.Cog):
 
     def get_now_playing_text(self):
         if self.current:
-            title, _ = self.current
-            return f"🎶 현재 재생 중: **{title}**"
+            title, url = self.current
+            return f"🎶 현재 재생 중: **[{title}]({url})**"
         else:
             return "현재 재생 중인 곡이 없습니다."
 
