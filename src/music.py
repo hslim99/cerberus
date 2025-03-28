@@ -28,10 +28,25 @@ ytdl_format_options = {
 }
 temp_cookie_path = None
 ffmpeg_options = {
-    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+    'before_options': '-fflags +genpts -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -re',
     'options': '-vn -bufsize 64k -ar 48000 -ac 2'
 }
 ytdl = yt_dlp.YoutubeDL(ytdl_format_options)
+
+
+def generate_temp_cookie():
+    global temp_cookie_path
+
+    cookie_path = os.getenv("COOKIEFILE")
+    if cookie_path and os.path.isfile(cookie_path):
+        temp_cookie = tempfile.NamedTemporaryFile(delete=False, suffix=".txt")
+        shutil.copyfile(cookie_path, temp_cookie.name)
+        temp_cookie_path = temp_cookie.name
+        ytdl_format_options["cookiefile"] = temp_cookie_path
+    else:
+        temp_cookie_path = None
+
+    return None
 
 
 def get_temp_cookie_path(original_cookie_path: str) -> str:
@@ -93,19 +108,9 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
     @classmethod
     async def from_url(cls, url, *, loop=None, stream=False):
-        global temp_cookie_path
-
         loop = asyncio.get_event_loop()
 
-        cookie_path = os.getenv("COOKIEFILE")
-        if cookie_path and os.path.isfile(cookie_path):
-            temp_cookie = tempfile.NamedTemporaryFile(delete=False, suffix=".txt")
-            shutil.copyfile(cookie_path, temp_cookie.name)
-            fix_netscape_cookie_format(temp_cookie.name, temp_cookie.name)
-            temp_cookie_path = temp_cookie.name
-            ytdl_format_options["cookiefile"] = temp_cookie_path
-        else:
-            temp_cookie_path = None
+        generate_temp_cookie()
 
         def extract():
             print("[DEBUG] cookiefile:", ytdl_format_options.get("cookiefile"))
@@ -127,6 +132,7 @@ class Music(commands.Cog):
         self.queue = []
         self.current = None
         self.force_stop = False
+        generate_temp_cookie()
 
     async def leave_channel(self, guild: discord.Guild, interaction: discord.Interaction = None):
         cleanup_temp_cookie()
