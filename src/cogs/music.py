@@ -186,7 +186,7 @@ class Music(commands.Cog):
             else:
                 await send_message(
                     interaction,
-                    f"🎵 `[{title}]({url})`을 재생 목록에 추가했어요!",
+                    f"🎵 [{title}]({url})을 재생 목록에 추가했어요!",
                     followup=True,
                 )
         except Exception as e:
