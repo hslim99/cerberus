@@ -8,7 +8,8 @@ from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 
-from utils.cookie import cleanup_temp_cookie, generate_temp_cookie, temp_cookie_path
+from utils.cookie import (cleanup_temp_cookie, generate_temp_cookie,
+                          temp_cookie_path)
 from utils.ytdl import ffmpeg_options, get_ytdl_options
 
 load_dotenv()
@@ -86,7 +87,7 @@ class Music(commands.Cog):
         generate_temp_cookie()
 
     async def leave_channel(
-            self, guild: discord.Guild, interaction: discord.Interaction = None
+        self, guild: discord.Guild, interaction: discord.Interaction = None
     ):
         cleanup_temp_cookie()
 
@@ -107,7 +108,7 @@ class Music(commands.Cog):
             await interaction.response.send_message("👋 음성 채널에서 나왔습니다.")
 
     async def check_and_leave_if_alone(
-            self, guild: discord.Guild, channel: discord.VoiceChannel
+        self, guild: discord.Guild, channel: discord.VoiceChannel
     ):
         print("확인 중...")
         await asyncio.sleep(10)
