@@ -1,5 +1,6 @@
 import asyncio
 import json
+from typing import Tuple
 
 import discord
 import yt_dlp
@@ -121,6 +122,23 @@ class Music(commands.Cog):
         if len(members) == 0:
             await self.leave_channel(guild)
 
+    @staticmethod
+    def has_permission(
+        self,
+        interaction: discord.Interaction,
+        music: Tuple[str, str, int],
+        vc: discord.VoiceClient,
+    ):
+        _, _, request_user_id = music
+        if interaction.user.guild_permissions.manage_guild:
+            return True
+        if interaction.user.id == request_user_id:
+            return True
+        vc_member_ids = [member.id for member in vc.channel.members]
+        if request_user_id not in vc_member_ids:
+            return True
+        return False
+
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
         if member.bot:
@@ -161,7 +179,7 @@ class Music(commands.Cog):
 
         try:
             title = await get_title_from_url_cli(url)
-            self.queue.append((title, url))
+            self.queue.append((title, url, interaction.user.id))
 
             if not vc.is_playing():
                 await self.play_next(vc, interaction)
@@ -179,7 +197,7 @@ class Music(commands.Cog):
             if self.force_stop:
                 return
 
-            title, url = self.queue.pop(0)
+            title, url, _ = self.queue.pop(0)
             self.current = (title, url)
             for attempt in range(5):
                 try:
@@ -227,8 +245,13 @@ class Music(commands.Cog):
             )
             return
 
-        await interaction.response.send_message("⏭️ 현재 곡을 스킵했어요!")
-        vc.stop()
+        if self.has_permission(interaction, self.current, vc):
+            await interaction.response.send_message("⏭️ 현재 곡을 스킵했어요!")
+            vc.stop()
+        else:
+            await interaction.response.send_message(
+                "❌ 해당 곡을 스킵할 권한이 없어요."
+            )
 
     @app_commands.command(name="queue", description="현재 대기열을 확인합니다.")
     async def queue_command(self, interaction: discord.Interaction):
@@ -241,7 +264,7 @@ class Music(commands.Cog):
             return
 
         display = ""
-        for i, (title, url) in enumerate(self.queue[:10]):
+        for i, (title, url, _) in enumerate(self.queue[:10]):
             display += f"{i + 1}. [{title}]({url})\n"
         await interaction.response.send_message(
             f"{now_playing}🎶 현재 대기열:\n{display}"
@@ -255,10 +278,16 @@ class Music(commands.Cog):
                 "❌ 유효하지 않은 번호입니다.", ephemeral=True
             )
             return
-        title, url = self.queue.pop(index - 1)
-        await interaction.response.send_message(
-            f"🗑️ `[{title}]({url})`을 대기열에서 제거했어요."
-        )
+        vc = discord.utils.get(self.bot.voice_clients, guild=interaction.guild)
+        if self.has_permission(interaction, self.queue[index - 1], vc):
+            title, url, _ = self.queue.pop(index - 1)
+            await interaction.response.send_message(
+                f"🗑️ `[{title}]({url})`을 대기열에서 제거했어요."
+            )
+        else:
+            await interaction.response.send_message(
+                "❌ 해당 곡을 삭제할 권한이 없어요."
+            )
 
     @app_commands.command(name="leave", description="봇을 음성 채널에서 나가게 합니다.")
     async def leave(self, interaction: discord.Interaction):
