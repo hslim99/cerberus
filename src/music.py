@@ -259,16 +259,16 @@ class Music(commands.Cog):
 
     @app_commands.command(name="queue", description="현재 대기열을 확인합니다.")
     async def queue_command(self, interaction: discord.Interaction):
-        text = self.get_now_playing_text() + "\n\n"
+        now_playing = self.get_now_playing_text() + "\n\n"
 
         if not self.queue:
-            await interaction.response.send_message("🎵 대기열이 비어 있습니다.")
+            await interaction.response.send_message(f"{now_playing}🎵 대기열이 비어 있습니다.")
             return
 
         display = ""
         for i, (title, _) in enumerate(self.queue[:10]):
             display += f"{i+1}. {title}\n"
-        await interaction.response.send_message(f"🎶 현재 대기열:\n{display}")
+        await interaction.response.send_message(f"{now_playing}🎶 현재 대기열:\n{display}")
 
     @app_commands.command(name="remove", description="대기열에서 특정 곡을 제거합니다.")
     @app_commands.describe(index="제거할 곡 번호 (1부터 시작)")
