@@ -11,3 +11,4 @@
 images
 *.iml
 src/__pycache__
+cookies.txt
