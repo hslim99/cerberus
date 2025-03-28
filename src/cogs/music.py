@@ -229,7 +229,6 @@ class Music(commands.Cog):
                         interaction,
                         f"🎶 재생 중: **[{title}]({url})**",
                         followup=True,
-                        reference=None,
                     )
                     return
                 except Exception as e:
