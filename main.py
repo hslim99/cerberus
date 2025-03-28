@@ -1,8 +1,11 @@
 import os
+import sys
 
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 load_dotenv()
 
