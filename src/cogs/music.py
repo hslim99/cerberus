@@ -9,6 +9,7 @@ from discord.ext import commands
 from dotenv import load_dotenv
 
 from utils.cookie import TemporaryCookie
+from utils.message import send_message
 from utils.ytdl import ffmpeg_options, get_ytdl_options
 
 load_dotenv()
@@ -103,7 +104,7 @@ class Music(commands.Cog):
 
         await vc.disconnect()
         if interaction:
-            await interaction.response.send_message("👋 음성 채널에서 나왔습니다.")
+            await send_message(interaction, "👋 음성 채널에서 나왔습니다.")
 
     async def check_and_leave_if_alone(
         self, guild: discord.Guild, channel: discord.VoiceChannel
@@ -157,14 +158,14 @@ class Music(commands.Cog):
         self.playing_task = True
 
         if not interaction.user.voice or not interaction.user.voice.channel:
-            await interaction.response.send_message(
-                "먼저 음성 채널에 참가해주세요.", ephemeral=True
+            await send_message(
+                interaction, "먼저 음성 채널에 참가해주세요.", ephemeral=True
             )
             return
 
         if len(self.queue) >= 10:
-            await interaction.response.send_message(
-                "대기열은 최대 10곡까지 가능합니다.", ephemeral=True
+            await send_message(
+                interaction, "대기열은 최대 10곡까지 가능합니다.", ephemeral=True
             )
             return
 
@@ -218,7 +219,9 @@ class Music(commands.Cog):
                         self.bot.loop.create_task(self.play_next(vc, interaction))
 
                     vc.play(player, after=after_play)
-                    await interaction.followup.send(f"🎶 재생 중: **[{title}]({url})**")
+                    await interaction.followup.send(
+                        f"🎶 재생 중: **[{title}]({url})**", reference=None
+                    )
                     return
                 except Exception as e:
                     if attempt < 4:
@@ -233,60 +236,60 @@ class Music(commands.Cog):
         vc = discord.utils.get(self.bot.voice_clients, guild=interaction.guild)
 
         if not vc or not vc.is_connected():
-            await interaction.response.send_message(
-                "봇이 음성 채널에 있지 않습니다.", ephemeral=True
+            await send_message(
+                interaction, "봇이 음성 채널에 있지 않습니다.", ephemeral=True
             )
             return
 
         if not vc.is_playing():
-            await interaction.response.send_message(
-                "현재 재생 중인 곡이 없습니다.", ephemeral=True
+            await send_message(
+                interaction, "현재 재생 중인 곡이 없습니다.", ephemeral=True
             )
             return
 
         if Music.has_permission(interaction, self.current, vc):
-            await interaction.response.send_message("⏭️ 현재 곡을 스킵했어요!")
+            await send_message(interaction, "⏭️ 현재 곡을 스킵했어요!")
             vc.stop()
         else:
-            await interaction.response.send_message(
-                "❌ 해당 곡을 스킵할 권한이 없어요."
-            )
+            await send_message(interaction, "❌ 해당 곡을 스킵할 권한이 없어요.")
 
     @app_commands.command(name="queue", description="현재 대기열을 확인합니다.")
     async def queue_command(self, interaction: discord.Interaction):
         now_playing = self.get_now_playing_text() + "\n\n"
 
         if not self.queue:
-            await interaction.response.send_message(
-                f"{now_playing}🎵 대기열이 비어 있습니다."
+            await send_message(
+                interaction,
+                f"{now_playing}🎵 대기열이 비어 있습니다.",
+                suppress_embeds=True,
             )
             return
 
         display = ""
         for i, (title, url, _) in enumerate(self.queue[:10]):
             display += f"{i + 1}. [{title}]({url})\n"
-        await interaction.response.send_message(
-            f"{now_playing}🎶 현재 대기열:\n{display}"
+        await send_message(
+            interaction,
+            f"{now_playing}🎶 현재 대기열:\n{display}",
+            suppress_embeds=True,
         )
 
     @app_commands.command(name="remove", description="대기열에서 특정 곡을 제거합니다.")
     @app_commands.describe(index="제거할 곡 번호 (1부터 시작)")
     async def remove_command(self, interaction: discord.Interaction, index: int):
         if index < 1 or index > len(self.queue):
-            await interaction.response.send_message(
-                "❌ 유효하지 않은 번호입니다.", ephemeral=True
+            await send_message(
+                interaction, "❌ 유효하지 않은 번호입니다.", ephemeral=True
             )
             return
         vc = discord.utils.get(self.bot.voice_clients, guild=interaction.guild)
         if Music.has_permission(interaction, self.queue[index - 1], vc):
             title, url, _ = self.queue.pop(index - 1)
-            await interaction.response.send_message(
-                f"🗑️ `[{title}]({url})`을 대기열에서 제거했어요."
+            await send_message(
+                interaction, f"🗑️ `[{title}]({url})`을 대기열에서 제거했어요."
             )
         else:
-            await interaction.response.send_message(
-                "❌ 해당 곡을 삭제할 권한이 없어요."
-            )
+            await send_message(interaction, "❌ 해당 곡을 삭제할 권한이 없어요.")
 
     @app_commands.command(name="leave", description="봇을 음성 채널에서 나가게 합니다.")
     async def leave(self, interaction: discord.Interaction):
@@ -304,7 +307,7 @@ class Music(commands.Cog):
     )
     async def nowplaying(self, interaction: discord.Interaction):
         text = self.get_now_playing_text()
-        await interaction.response.send_message(text)
+        await send_message(interaction, text)
 
 
 async def setup(bot: commands.Bot):
