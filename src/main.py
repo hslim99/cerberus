@@ -1,8 +1,7 @@
 import os
+
 import discord
 from discord.ext import commands
-from log import init_log
-from music import init_music
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -17,23 +16,26 @@ intents.voice_states = True
 intents.message_content = True
 
 
-class MyBot(commands.Bot):
+class Cerberus(commands.Bot):
     def __init__(self, *, intents: discord.Intents):
         super().__init__(command_prefix="/", intents=intents)
 
     async def setup_hook(self):
-        guild = discord.Object(id=int(os.getenv('GUILD_ID')))
-        init_log(self)
-        await init_music(self)
+        guild = discord.Object(id=int(os.getenv("GUILD_ID")))
+
+        await self.load_extension("src.cogs.music")
+        await self.load_extension("src.cogs.logger")
+
         await self.tree.sync(guild=guild)
         print("✅ Slash 명령어 동기화 완료!")
 
 
-bot = MyBot(intents=intents)
+bot = Cerberus(intents=intents)
 
 
 @bot.event
 async def on_ready():
-    print(f'{bot.user}에 로그인하였습니다!')
+    print(f"{bot.user}에 로그인하였습니다!")
+
 
 bot.run(os.getenv("TOKEN"))
