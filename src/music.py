@@ -6,6 +6,8 @@ import asyncio
 import json
 import os
 from dotenv import load_dotenv
+import shutil
+import tempfile
 
 load_dotenv()
 
@@ -23,30 +25,38 @@ ytdl_format_options = {
     'default_search': 'auto',
     'source_address': '0.0.0.0'  # ipv6 문제 방지
 }
-
-# 쿠키 파일 조건부 추가
-cookie_path = os.getenv("COOKIEFILE")
-if cookie_path and os.path.isfile(cookie_path):
-    ytdl_format_options["cookiefile"] = cookie_path
-    print(f"[INFO] 쿠키 파일 적용됨: {cookie_path}")
-else:
-    print("[INFO] 쿠키 파일이 없거나 경로가 잘못되었습니다. 인증이 필요한 영상은 제한될 수 있습니다.")
-
-
+temp_cookie_path = None
 ffmpeg_options = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'options': '-vn -bufsize 64k -ar 48000 -ac 2'
 }
-
 ytdl = yt_dlp.YoutubeDL(ytdl_format_options)
+
+
+def get_temp_cookie_path(original_cookie_path: str) -> str:
+    temp = tempfile.NamedTemporaryFile(delete=False)
+    shutil.copyfile(original_cookie_path, temp.name)
+    return temp.name
+
+
+def cleanup_temp_cookie():
+    global temp_cookie_path
+    if temp_cookie_path and os.path.exists(temp_cookie_path):
+        try:
+            os.remove(temp_cookie_path)
+            print(f"[쿠키 삭제] {temp_cookie_path}")
+        except Exception as e:
+            print(f"[쿠키 삭제 실패] {e}")
+        finally:
+            temp_cookie_path = None
 
 
 async def get_title_from_url_cli(url: str) -> str:
     try:
         cmd = ["yt-dlp"]
 
-        if ytdl_format_options["cookiefile"]:
-            cmd += ["--cookies", cookie_path]
+        if temp_cookie_path and os.path.isfile(temp_cookie_path):
+            cmd += ["--cookies", temp_cookie_path]
 
         cmd += ["-j", url]
 
@@ -82,7 +92,18 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
     @classmethod
     async def from_url(cls, url, *, loop=None, stream=False):
+        global temp_cookie_path
+
         loop = asyncio.get_event_loop()
+
+        cookie_path = os.getenv("COOKIEFILE")
+        if cookie_path and os.path.isfile(cookie_path):
+            temp_cookie = tempfile.NamedTemporaryFile(delete=False, suffix=".txt")
+            shutil.copyfile(cookie_path, temp_cookie.name)
+            temp_cookie_path = temp_cookie.name
+            ytdl_format_options["cookiefile"] = temp_cookie_path
+        else:
+            temp_cookie_path = None
 
         def extract():
             print("[DEBUG] cookiefile:", ytdl_format_options.get("cookiefile"))
@@ -106,6 +127,8 @@ class Music(commands.Cog):
         self.force_stop = False
 
     async def leave_channel(self, guild: discord.Guild, interaction: discord.Interaction = None):
+        cleanup_temp_cookie()
+
         vc = discord.utils.get(self.bot.voice_clients, guild=guild)
         if not vc or not vc.is_connected():
             return
@@ -196,6 +219,8 @@ class Music(commands.Cog):
                     player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
 
                     def after_play(err):
+                        cleanup_temp_cookie()
+
                         if self.force_stop:
                             return
                         if err:
