@@ -4,6 +4,10 @@ from discord.ext import commands
 import yt_dlp
 import asyncio
 import json
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # yt-dlp 설정
 ytdl_format_options = {
@@ -20,6 +24,15 @@ ytdl_format_options = {
     'source_address': '0.0.0.0'  # ipv6 문제 방지
 }
 
+# 쿠키 파일 조건부 추가
+cookie_path = os.getenv("COOKIEFILE")
+if cookie_path and os.path.isfile(cookie_path):
+    ytdl_format_options["cookiefile"] = cookie_path
+    print(f"[INFO] 쿠키 파일 적용됨: {cookie_path}")
+else:
+    print("[INFO] 쿠키 파일이 없거나 경로가 잘못되었습니다. 인증이 필요한 영상은 제한될 수 있습니다.")
+
+
 ffmpeg_options = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'options': '-vn'
@@ -30,8 +43,15 @@ ytdl = yt_dlp.YoutubeDL(ytdl_format_options)
 
 async def get_title_from_url_cli(url: str) -> str:
     try:
+        cmd = ["yt-dlp"]
+
+        if ytdl_format_options["cookiefile"]:
+            cmd += ["--cookies", cookie_path]
+
+        cmd += ["-j", url]
+
         process = await asyncio.create_subprocess_exec(
-            "yt-dlp", "-j", url,
+            *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
