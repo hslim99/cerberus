@@ -19,5 +19,5 @@ def get_ytdl_options(cookiefile: str | None = None):
 
 ffmpeg_options = {
     "before_options": "-fflags +genpts -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -re",
-    "options": "-vn -bufsize 64k -ar 48000 -ac 2",
+    "options": "-vn -bufsize 256k -ar 48000 -ac 2",
 }
