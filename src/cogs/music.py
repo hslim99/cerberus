@@ -124,7 +124,6 @@ class Music(commands.Cog):
 
     @staticmethod
     def has_permission(
-        self,
         interaction: discord.Interaction,
         music: Tuple[str, str, int],
         vc: discord.VoiceClient,
