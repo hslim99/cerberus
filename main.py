@@ -23,8 +23,8 @@ class Cerberus(commands.Bot):
     async def setup_hook(self):
         guild = discord.Object(id=int(os.getenv("GUILD_ID")))
 
-        await self.load_extension("src.cogs.music")
-        await self.load_extension("src.cogs.logger")
+        await self.load_extension("cogs.music")
+        await self.load_extension("cogs.logger")
 
         await self.tree.sync(guild=guild)
         print("✅ Slash 명령어 동기화 완료!")
