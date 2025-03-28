@@ -1,6 +1,5 @@
 import asyncio
 import json
-import os
 
 import discord
 import yt_dlp
@@ -8,7 +7,7 @@ from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 
-from utils.cookie import cleanup_temp_cookie, generate_temp_cookie
+from utils.cookie import TemporaryCookie
 from utils.ytdl import ffmpeg_options, get_ytdl_options
 
 load_dotenv()
@@ -16,30 +15,28 @@ load_dotenv()
 
 async def get_title_from_url_cli(url: str) -> str:
     try:
-        cookiefile = generate_temp_cookie()
+        with TemporaryCookie() as cookiefile:
+            cmd = ["yt-dlp"]
+            if cookiefile:
+                cmd += ["--cookies", cookiefile]
+            cmd += ["-j", url]
 
-        cmd = ["yt-dlp"]
-        if cookiefile and os.path.isfile(cookiefile):
-            cmd += ["--cookies", cookiefile]
+            process = await asyncio.create_subprocess_exec(
+                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            )
 
-        cmd += ["-j", url]
+            stdout, stderr = await process.communicate()
 
-        process = await asyncio.create_subprocess_exec(
-            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-        )
+            if process.returncode != 0:
+                raise Exception(stderr.decode().strip())
 
-        stdout, stderr = await process.communicate()
-
-        if process.returncode != 0:
-            raise Exception(stderr.decode().strip())
-
-        data = json.loads(stdout)
-        if "title" in data:
-            return data["title"]
-        elif "entries" in data and isinstance(data["entries"], list):
-            return data["entries"][0].get("title", "알 수 없는 제목")
-        else:
-            return "알 수 없는 제목"
+            data = json.loads(stdout)
+            if "title" in data:
+                return data["title"]
+            elif "entries" in data and isinstance(data["entries"], list):
+                return data["entries"][0].get("title", "알 수 없는 제목")
+            else:
+                return "알 수 없는 제목"
     except Exception as e:
         print(f"(제목 추출 실패: {e})")
         return url
@@ -57,25 +54,27 @@ class YTDLSource(discord.PCMVolumeTransformer):
     async def from_url(cls, url, *, loop=None, stream=False):
         loop = asyncio.get_event_loop()
 
-        cookiefile = generate_temp_cookie()
-        options = get_ytdl_options(cookiefile)
+        with TemporaryCookie() as cookiefile:
+            options = get_ytdl_options(cookiefile)
 
-        def extract():
-            print("[DEBUG] cookiefile:", options.get("cookiefile"))
-            with yt_dlp.YoutubeDL(options) as ydl:
-                data = ydl.extract_info(url, download=not stream)
-                return data["entries"][0] if "entries" in data else data
+            def extract():
+                print("[DEBUG] cookiefile:", options.get("cookiefile"))
+                with yt_dlp.YoutubeDL(options) as ydl:
+                    data = ydl.extract_info(url, download=not stream)
+                    return data["entries"][0] if "entries" in data else data
 
-        data = await loop.run_in_executor(None, extract)
+            data = await loop.run_in_executor(None, extract)
 
-        filename = (
-            data["url"] if stream else yt_dlp.YoutubeDL(options).prepare_filename(data)
-        )
-        return cls(
-            discord.FFmpegPCMAudio(filename, **ffmpeg_options),
-            data=data,
-            options=options,
-        )
+            filename = (
+                data["url"]
+                if stream
+                else yt_dlp.YoutubeDL(options).prepare_filename(data)
+            )
+            return cls(
+                discord.FFmpegPCMAudio(filename, **ffmpeg_options),
+                data=data,
+                options=options,
+            )
 
 
 class Music(commands.Cog):
@@ -84,13 +83,10 @@ class Music(commands.Cog):
         self.queue = []
         self.current = None
         self.force_stop = False
-        generate_temp_cookie()
 
     async def leave_channel(
         self, guild: discord.Guild, interaction: discord.Interaction = None
     ):
-        cleanup_temp_cookie()
-
         vc = discord.utils.get(self.bot.voice_clients, guild=guild)
         if not vc or not vc.is_connected():
             return
@@ -188,8 +184,6 @@ class Music(commands.Cog):
                     )
 
                     def after_play(err):
-                        cleanup_temp_cookie()
-
                         if self.force_stop:
                             return
                         if err:

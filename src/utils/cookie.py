@@ -9,30 +9,27 @@ load_dotenv()
 temp_cookie_path = None
 
 
-def generate_temp_cookie() -> str:
-    global temp_cookie_path
+class TemporaryCookie:
+    def __init__(self):
+        self.cookie_path = os.getenv("COOKIEFILE")
+        self.temp_path = None
 
-    cookie_path = os.getenv("COOKIEFILE")
-    if cookie_path and os.path.isfile(cookie_path):
-        temp_cookie = tempfile.NamedTemporaryFile(delete=False, suffix=".txt")
-        shutil.copyfile(cookie_path, temp_cookie.name)
-        temp_cookie_path = temp_cookie.name
-    else:
-        temp_cookie_path = None
+    def __enter__(self):
+        if self.cookie_path and os.path.isfile(self.cookie_path):
+            temp_cookie = tempfile.NamedTemporaryFile(delete=False, suffix=".txt")
+            shutil.copyfile(self.cookie_path, temp_cookie.name)
+            # fix_netscape_cookie_format(temp_cookie.name, temp_cookie.name)
+            self.temp_path = temp_cookie.name
+            return self.temp_path
+        return None
 
-    return temp_cookie_path
-
-
-def cleanup_temp_cookie():
-    global temp_cookie_path
-    if temp_cookie_path and os.path.exists(temp_cookie_path):
-        try:
-            os.remove(temp_cookie_path)
-            print(f"[쿠키 삭제] {temp_cookie_path}")
-        except Exception as e:
-            print(f"[쿠키 삭제 실패] {e}")
-        finally:
-            temp_cookie_path = None
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.temp_path and os.path.isfile(self.temp_path):
+            try:
+                os.remove(self.temp_path)
+                print(f"[DEBUG] 쿠키 삭제됨: {self.temp_path}")
+            except Exception as e:
+                print(f"[WARN] 쿠키 삭제 실패: {e}")
 
 
 def fix_netscape_cookie_format(input_path: str, output_path: str) -> None:
