@@ -264,9 +264,13 @@ class Music(commands.Cog):
                 )
                 return
 
-            self.queue.append((title, url, interaction.user.id, data if not is_playing else None))
+            self.queue.append(
+                (title, url, interaction.user.id, data if not is_playing else None)
+            )
 
-            if not is_playing:
+            if (
+                not vc.is_playing()  # To resolve the race condition, recall is_playing() again
+            ):
                 await self.play_next(vc, interaction)
             else:
                 await send_message(
