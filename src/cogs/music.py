@@ -1,4 +1,5 @@
 import asyncio
+import json
 import re
 import time
 from typing import Tuple
@@ -18,9 +19,44 @@ load_dotenv()
 MAX_MIN = 30
 
 
+async def get_metadata_from_url_cli(url: str):
+    try:
+        print("메타데이터 추출 중...")
+        start = time.perf_counter()
+
+        with TemporaryCookie() as cookiefile:
+            cmd = [
+                "yt-dlp",
+                "--no-check-certificate",
+                "--skip-download",
+                "--no-playlist",
+            ]
+            if cookiefile:
+                cmd += ["--cookies", cookiefile]
+            cmd += ["-j", url]
+
+            process = await asyncio.create_subprocess_exec(
+                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            )
+
+            stdout, stderr = await process.communicate()
+
+            elapsed = int((time.perf_counter() - start) * 1000)
+            print(f"메타데이터 추출 완료 (소요 시간: {elapsed}ms)")
+
+            if process.returncode != 0:
+                raise Exception(stderr.decode().strip())
+
+            data = json.loads(stdout)
+            return data["entries"][0] if "entries" in data else data
+    except Exception as e:
+        print(f"(메타데이터 추출 실패: {e})")
+        return None
+
+
 async def get_metadata_from_url_api(url: str):
     try:
-        print("🔍 메타데이터 추출 중...")
+        print("메타데이터 추출 중...")
         start = time.perf_counter()
 
         with TemporaryCookie() as cookiefile:
@@ -44,11 +80,11 @@ async def get_metadata_from_url_api(url: str):
             data = await loop.run_in_executor(None, extract)
 
             elapsed = int((time.perf_counter() - start) * 1000)
-            print(f"✅ 메타데이터 추출 완료... (소요 시간: {elapsed}ms)")
+            print(f"메타데이터 추출 완료... (소요 시간: {elapsed}ms)")
             return data
 
     except Exception as e:
-        print(f"⚠️ 메타데이터 추출 실패: {e}")
+        print(f"메타데이터 추출 실패: {e}")
         return {}
 
 
@@ -205,7 +241,10 @@ class Music(commands.Cog):
         await interaction.response.defer()
 
         try:
-            data = await get_metadata_from_url_api(url)
+            if not vc.is_playing:
+                data = await get_metadata_from_url_api(url)
+            else:
+                data = await get_metadata_from_url_cli(url)
             title = data["title"] or url
             is_live = data["is_live"]
             duration = int(data["duration"])
@@ -224,9 +263,9 @@ class Music(commands.Cog):
                 )
                 return
 
-            self.queue.append((title, url, interaction.user.id, data))
+            self.queue.append((title, url, interaction.user.id, None))
 
-            if not vc.is_playing():
+            if not vc.is_playing:
                 await self.play_next(vc, interaction)
             else:
                 await send_message(
