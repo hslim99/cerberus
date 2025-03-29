@@ -144,10 +144,10 @@ class Music(commands.Cog):
     @staticmethod
     def has_permission(
         interaction: discord.Interaction,
-        music: Tuple[str, str, int],
+        music: Tuple[str, str, int, dict],
         vc: discord.VoiceClient,
     ):
-        _, _, request_user_id = music
+        _, _, request_user_id, _ = music
         if interaction.user.guild_permissions.manage_guild:
             return True
         if interaction.user.id == request_user_id:
@@ -222,10 +222,10 @@ class Music(commands.Cog):
                 )
                 return
 
-            self.queue.append((title, url, interaction.user.id))
+            self.queue.append((title, url, interaction.user.id, data))
 
             if not vc.is_playing():
-                await self.play_next(vc, interaction, data)
+                await self.play_next(vc, interaction)
             else:
                 await send_message(
                     interaction,
@@ -239,13 +239,13 @@ class Music(commands.Cog):
         finally:
             self.playing_task = False
 
-    async def play_next(self, vc, interaction, data):
+    async def play_next(self, vc, interaction):
         while self.queue:
             if self.force_stop:
                 return
 
-            title, url, requested_user_id = self.queue.pop(0)
-            self.current = (title, url, requested_user_id)
+            title, url, requested_user_id, data = self.queue.pop(0)
+            self.current = (title, url, requested_user_id, data)
             for attempt in range(5):
                 try:
                     player = await YTDLSource.from_url(
@@ -319,7 +319,7 @@ class Music(commands.Cog):
             return
 
         display = ""
-        for i, (title, url, _) in enumerate(self.queue[:10]):
+        for i, (title, url, *_) in enumerate(self.queue[:10]):
             display += f"{i + 1}. [{title}]({url})\n"
         await send_message(
             interaction,
@@ -337,7 +337,7 @@ class Music(commands.Cog):
             return
         vc = discord.utils.get(self.bot.voice_clients, guild=interaction.guild)
         if Music.has_permission(interaction, self.queue[index - 1], vc):
-            title, url, _ = self.queue.pop(index - 1)
+            title, url, *_ = self.queue.pop(index - 1)
             await send_message(
                 interaction, f"🗑️ `[{title}]({url})`을 대기열에서 제거했어요."
             )
@@ -350,7 +350,7 @@ class Music(commands.Cog):
 
     def get_now_playing_text(self):
         if self.current:
-            title, url, _ = self.current
+            title, url, *_ = self.current
             return f"🎶 현재 재생 중: **[{title}]({url})**"
         else:
             return "❌ 현재 재생 중인 곡이 없습니다."
