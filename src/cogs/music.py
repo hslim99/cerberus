@@ -69,7 +69,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         self.url = data.get("url")
 
     @classmethod
-    async def from_url(cls, url, *, loop=None, stream=False):
+    async def from_url(cls, url, *, loop=None, stream=False, data=None):
         print("영상 재생 초기화 중...")
         start = time.perf_counter()
 
@@ -84,7 +84,8 @@ class YTDLSource(discord.PCMVolumeTransformer):
                     data = ydl.extract_info(url, download=not stream)
                     return data["entries"][0] if "entries" in data else data
 
-            data = await loop.run_in_executor(None, extract)
+            if not data:
+                data = await loop.run_in_executor(None, extract)
 
             filename = (
                 data["url"]
@@ -230,7 +231,7 @@ class Music(commands.Cog):
             self.queue.append((title, url, interaction.user.id))
 
             if not vc.is_playing():
-                await self.play_next(vc, interaction)
+                await self.play_next(vc, interaction, data)
             else:
                 await send_message(
                     interaction,
@@ -244,7 +245,7 @@ class Music(commands.Cog):
         finally:
             self.playing_task = False
 
-    async def play_next(self, vc, interaction):
+    async def play_next(self, vc, interaction, data):
         while self.queue:
             if self.force_stop:
                 return
@@ -254,7 +255,7 @@ class Music(commands.Cog):
             for attempt in range(5):
                 try:
                     player = await YTDLSource.from_url(
-                        url, loop=self.bot.loop, stream=True
+                        url, loop=self.bot.loop, stream=True, data=data
                     )
 
                     def after_play(err):
