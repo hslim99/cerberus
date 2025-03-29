@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 from typing import Tuple
 
 import discord
@@ -14,8 +15,10 @@ from utils.ytdl import ffmpeg_options, get_ytdl_options
 
 load_dotenv()
 
+MAX_MIN = 30
 
-async def get_title_from_url_cli(url: str) -> str:
+
+async def get_metadata_from_url_cli(url: str) -> str | None:
     try:
         with TemporaryCookie() as cookiefile:
             cmd = ["yt-dlp"]
@@ -33,15 +36,10 @@ async def get_title_from_url_cli(url: str) -> str:
                 raise Exception(stderr.decode().strip())
 
             data = json.loads(stdout)
-            if "title" in data:
-                return data["title"]
-            elif "entries" in data and isinstance(data["entries"], list):
-                return data["entries"][0].get("title", "알 수 없는 제목")
-            else:
-                return "알 수 없는 제목"
+            return data["entries"][0] if "entries" in data else data
     except Exception as e:
-        print(f"(제목 추출 실패: {e})")
-        return url
+        print(f"(메타데이터 추출 실패: {e})")
+        return None
 
 
 class YTDLSource(discord.PCMVolumeTransformer):
@@ -169,6 +167,13 @@ class Music(commands.Cog):
             )
             return
 
+        p = re.compile(r"^(https?://)?(www\.)?(youtube\.com|youtu\.be)/.+$")
+        if not p.match(url):
+            await send_message(
+                interaction, "❌ 유효한 YouTube URL이 아닙니다.", ephemeral=True
+            )
+            return
+
         voice_channel = interaction.user.voice.channel
         vc = discord.utils.get(self.bot.voice_clients, guild=interaction.guild)
 
@@ -178,7 +183,23 @@ class Music(commands.Cog):
         await interaction.response.defer()
 
         try:
-            title = await get_title_from_url_cli(url)
+            data = await get_metadata_from_url_cli(url)
+            title = data["title"] or url
+            is_live = data["is_live"]
+            duration = int(data["duration"])
+
+            if is_live:
+                await send_message(
+                    interaction, "❌ 라이브 영상은 추가할 수 없어요.", ephemeral=True
+                )
+                return
+
+            if duration and duration >= (60 * MAX_MIN):
+                await send_message(
+                    interaction, f"❌ {MAX_MIN}분 미만의 영상만 재생할 수 있어요.", ephemeral=True
+                )
+                return
+
             self.queue.append((title, url, interaction.user.id))
 
             if not vc.is_playing():
