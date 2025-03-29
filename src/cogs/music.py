@@ -241,7 +241,7 @@ class Music(commands.Cog):
         await interaction.response.defer()
 
         try:
-            if not vc.is_playing:
+            if not vc.is_playing():
                 data = await get_metadata_from_url_api(url)
             else:
                 data = await get_metadata_from_url_cli(url)
@@ -265,7 +265,7 @@ class Music(commands.Cog):
 
             self.queue.append((title, url, interaction.user.id, None))
 
-            if not vc.is_playing:
+            if not vc.is_playing():
                 await self.play_next(vc, interaction)
             else:
                 await send_message(
