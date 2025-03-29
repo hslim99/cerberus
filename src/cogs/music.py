@@ -221,7 +221,9 @@ class Music(commands.Cog):
 
             if duration and duration >= (60 * MAX_MIN):
                 await send_message(
-                    interaction, f"❌ {MAX_MIN}분 미만의 영상만 재생할 수 있어요.", ephemeral=True
+                    interaction,
+                    f"❌ {MAX_MIN}분 미만의 영상만 재생할 수 있어요.",
+                    ephemeral=True,
                 )
                 return
 
