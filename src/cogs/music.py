@@ -1,4 +1,5 @@
 import asyncio
+import json
 import re
 import time
 from typing import Tuple
@@ -29,12 +30,10 @@ async def get_metadata_from_url_cli(url: str):
                 "--no-check-certificate",
                 "--skip-download",
                 "--no-playlist",
-                "--print",
-                "%(title)s|%(duration)s|%(is_live)s",
             ]
             if cookiefile:
                 cmd += ["--cookies", cookiefile]
-            cmd += [url]
+            cmd += ["-j", url]
 
             process = await asyncio.create_subprocess_exec(
                 *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
@@ -48,13 +47,8 @@ async def get_metadata_from_url_cli(url: str):
             if process.returncode != 0:
                 raise Exception(stderr.decode().strip())
 
-            result = stdout.decode().strip()
-            title, duration, is_live = result.split("|")
-            return {
-                "title": title,
-                "duration": int(duration) if duration else None,
-                "is_live": is_live.lower() == "true",
-            }
+            data = json.loads(stdout)
+            return data["entries"][0] if "entries" in data else data
     except Exception as e:
         print(f"(메타데이터 추출 실패: {e})")
         return None
