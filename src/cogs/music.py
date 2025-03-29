@@ -1,5 +1,4 @@
 import asyncio
-import json
 import re
 import time
 from typing import Tuple
@@ -19,16 +18,23 @@ load_dotenv()
 MAX_MIN = 30
 
 
-async def get_metadata_from_url_cli(url: str) -> str | None:
+async def get_metadata_from_url_cli(url: str):
     try:
         print("메타데이터 추출 중...")
         start = time.perf_counter()
 
         with TemporaryCookie() as cookiefile:
-            cmd = ["yt-dlp"]
+            cmd = [
+                "yt-dlp",
+                "--no-check-certificate",
+                "--skip-download",
+                "--no-playlist",
+                "--print",
+                "%(title)s|%(duration)s|%(is_live)s",
+            ]
             if cookiefile:
                 cmd += ["--cookies", cookiefile]
-            cmd += ["-j", url]
+            cmd += [url]
 
             process = await asyncio.create_subprocess_exec(
                 *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
@@ -42,8 +48,13 @@ async def get_metadata_from_url_cli(url: str) -> str | None:
             if process.returncode != 0:
                 raise Exception(stderr.decode().strip())
 
-            data = json.loads(stdout)
-            return data["entries"][0] if "entries" in data else data
+            result = stdout.decode().strip()
+            title, duration, is_live = result.split("|")
+            return {
+                "title": title,
+                "duration": int(duration) if duration else None,
+                "is_live": is_live.lower() == "true",
+            }
     except Exception as e:
         print(f"(메타데이터 추출 실패: {e})")
         return None
