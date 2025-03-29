@@ -1,6 +1,7 @@
 import asyncio
 import json
 import re
+import time
 from typing import Tuple
 
 import discord
@@ -20,6 +21,9 @@ MAX_MIN = 30
 
 async def get_metadata_from_url_cli(url: str) -> str | None:
     try:
+        print("메타데이터 추출 중...")
+        start = time.perf_counter()
+
         with TemporaryCookie() as cookiefile:
             cmd = ["yt-dlp"]
             if cookiefile:
@@ -31,6 +35,9 @@ async def get_metadata_from_url_cli(url: str) -> str | None:
             )
 
             stdout, stderr = await process.communicate()
+
+            elapsed = int((time.perf_counter() - start) * 1000)
+            print(f"메타데이터 추출 완료 (소요 시간: {elapsed}ms)")
 
             if process.returncode != 0:
                 raise Exception(stderr.decode().strip())
@@ -52,6 +59,9 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
     @classmethod
     async def from_url(cls, url, *, loop=None, stream=False):
+        print("영상 재생 초기화 중...")
+        start = time.perf_counter()
+
         loop = asyncio.get_event_loop()
 
         with TemporaryCookie() as cookiefile:
@@ -70,6 +80,10 @@ class YTDLSource(discord.PCMVolumeTransformer):
                 if stream
                 else yt_dlp.YoutubeDL(options).prepare_filename(data)
             )
+
+            elapsed = int((time.perf_counter() - start) * 1000)
+            print(f"영상 재생 초기화 완료 (소요 시간: {elapsed}ms)")
+
             return cls(
                 discord.FFmpegPCMAudio(filename, **ffmpeg_options),
                 data=data,
