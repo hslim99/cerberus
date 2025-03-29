@@ -157,13 +157,13 @@ class Music(commands.Cog):
 
         if not interaction.user.voice or not interaction.user.voice.channel:
             await send_message(
-                interaction, "먼저 음성 채널에 참가해주세요.", ephemeral=True
+                interaction, "⚠️ 먼저 음성 채널에 참가해주세요.", ephemeral=True
             )
             return
 
         if len(self.queue) >= 10:
             await send_message(
-                interaction, "대기열은 최대 10곡까지 가능합니다.", ephemeral=True
+                interaction, "⚠️ 대기열은 최대 10곡까지 가능합니다.", ephemeral=True
             )
             return
 
@@ -212,7 +212,7 @@ class Music(commands.Cog):
                 )
         except Exception as e:
             await send_message(
-                interaction, f"오류 발생: {e}", followup=True, ephemeral=True
+                interaction, f"⚠️ 오류 발생: {e}", followup=True, ephemeral=True
             )
         finally:
             self.playing_task = False
@@ -268,13 +268,13 @@ class Music(commands.Cog):
 
         if not vc or not vc.is_connected():
             await send_message(
-                interaction, "봇이 음성 채널에 있지 않습니다.", ephemeral=True
+                interaction, "⚠️ 봇이 음성 채널에 있지 않습니다.", ephemeral=True
             )
             return
 
         if not vc.is_playing():
             await send_message(
-                interaction, "현재 재생 중인 곡이 없습니다.", ephemeral=True
+                interaction, "❌ 현재 재생 중인 곡이 없습니다.", ephemeral=True
             )
             return
 
@@ -331,7 +331,7 @@ class Music(commands.Cog):
             title, url, _ = self.current
             return f"🎶 현재 재생 중: **[{title}]({url})**"
         else:
-            return "현재 재생 중인 곡이 없습니다."
+            return "❌ 현재 재생 중인 곡이 없습니다."
 
     @app_commands.command(
         name="nowplaying", description="현재 재생 중인 곡을 표시합니다."
