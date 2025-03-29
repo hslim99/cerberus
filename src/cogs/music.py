@@ -1,5 +1,4 @@
 import asyncio
-import json
 import re
 import time
 from typing import Tuple
@@ -19,39 +18,38 @@ load_dotenv()
 MAX_MIN = 30
 
 
-async def get_metadata_from_url_cli(url: str):
+async def get_metadata_from_url_api(url: str):
     try:
-        print("메타데이터 추출 중...")
+        print("🔍 메타데이터 추출 중...")
         start = time.perf_counter()
 
         with TemporaryCookie() as cookiefile:
-            cmd = [
-                "yt-dlp",
-                "--no-check-certificate",
-                "--skip-download",
-                "--no-playlist",
-            ]
-            if cookiefile:
-                cmd += ["--cookies", cookiefile]
-            cmd += ["-j", url]
-
-            process = await asyncio.create_subprocess_exec(
-                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            options = get_ytdl_options(cookiefile)
+            options.update(
+                {
+                    "skip_download": True,
+                    "noplaylist": True,
+                    "no_check_certificate": True,
+                    "quiet": True,
+                    "no_warnings": True,
+                }
             )
 
-            stdout, stderr = await process.communicate()
+            def extract():
+                with yt_dlp.YoutubeDL(options) as ydl:
+                    info = ydl.extract_info(url, download=False)
+                    return info["entries"][0] if "entries" in info else info
+
+            loop = asyncio.get_event_loop()
+            data = await loop.run_in_executor(None, extract)
 
             elapsed = int((time.perf_counter() - start) * 1000)
-            print(f"메타데이터 추출 완료 (소요 시간: {elapsed}ms)")
+            print(f"✅ 메타데이터 추출 완료... (소요 시간: {elapsed}ms)")
+            return data
 
-            if process.returncode != 0:
-                raise Exception(stderr.decode().strip())
-
-            data = json.loads(stdout)
-            return data["entries"][0] if "entries" in data else data
     except Exception as e:
-        print(f"(메타데이터 추출 실패: {e})")
-        return None
+        print(f"⚠️ 메타데이터 추출 실패: {e}")
+        return {}
 
 
 class YTDLSource(discord.PCMVolumeTransformer):
@@ -74,13 +72,14 @@ class YTDLSource(discord.PCMVolumeTransformer):
                 options = get_ytdl_options(cookiefile)
 
                 def extract():
+                    if data:
+                        return data
                     print("[DEBUG] cookiefile:", options.get("cookiefile"))
                     with yt_dlp.YoutubeDL(options) as ydl:
-                        data = ydl.extract_info(url, download=not stream)
-                        return data["entries"][0] if "entries" in data else data
+                        _data = ydl.extract_info(url, download=not stream)
+                        return _data["entries"][0] if "entries" in _data else _data
 
-                if not data:
-                    data = await loop.run_in_executor(None, extract)
+                data = await loop.run_in_executor(None, extract)
 
                 filename = (
                     data["url"]
@@ -206,7 +205,7 @@ class Music(commands.Cog):
         await interaction.response.defer()
 
         try:
-            data = await get_metadata_from_url_cli(url)
+            data = await get_metadata_from_url_api(url)
             title = data["title"] or url
             is_live = data["is_live"]
             duration = int(data["duration"])
@@ -249,10 +248,6 @@ class Music(commands.Cog):
 
             title, url, requested_user_id, data = self.queue.pop(0)
             self.current = (title, url, requested_user_id, data)
-            print(f"[DEBUG] 재생 대기열에서 꺼낸 데이터: {title=}, {url=}, {data=}")
-            if not isinstance(data, dict):
-                print(f"[WARN] metadata가 dict가 아님. data={data}")
-                data = None
             for attempt in range(5):
                 try:
                     player = await YTDLSource.from_url(
