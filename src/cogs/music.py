@@ -246,6 +246,10 @@ class Music(commands.Cog):
 
             title, url, requested_user_id, data = self.queue.pop(0)
             self.current = (title, url, requested_user_id, data)
+            print(f"[DEBUG] 재생 대기열에서 꺼낸 데이터: {title=}, {url=}, {data=}")
+            if not isinstance(data, dict):
+                print(f"[WARN] metadata가 dict가 아님. data={data}")
+                data = None
             for attempt in range(5):
                 try:
                     player = await YTDLSource.from_url(
