@@ -69,32 +69,35 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
         loop = asyncio.get_event_loop()
 
-        with TemporaryCookie() as cookiefile:
-            options = get_ytdl_options(cookiefile)
+        try:
+            with TemporaryCookie() as cookiefile:
+                options = get_ytdl_options(cookiefile)
 
-            def extract():
-                print("[DEBUG] cookiefile:", options.get("cookiefile"))
-                with yt_dlp.YoutubeDL(options) as ydl:
-                    data = ydl.extract_info(url, download=not stream)
-                    return data["entries"][0] if "entries" in data else data
+                def extract():
+                    print("[DEBUG] cookiefile:", options.get("cookiefile"))
+                    with yt_dlp.YoutubeDL(options) as ydl:
+                        data = ydl.extract_info(url, download=not stream)
+                        return data["entries"][0] if "entries" in data else data
 
-            if not data:
-                data = await loop.run_in_executor(None, extract)
+                if not data:
+                    data = await loop.run_in_executor(None, extract)
 
-            filename = (
-                data["url"]
-                if stream
-                else yt_dlp.YoutubeDL(options).prepare_filename(data)
-            )
+                filename = (
+                    data["url"]
+                    if stream
+                    else yt_dlp.YoutubeDL(options).prepare_filename(data)
+                )
 
-            elapsed = int((time.perf_counter() - start) * 1000)
-            print(f"영상 재생 초기화 완료 (소요 시간: {elapsed}ms)")
+                elapsed = int((time.perf_counter() - start) * 1000)
+                print(f"영상 재생 초기화 완료 (소요 시간: {elapsed}ms)")
 
-            return cls(
-                discord.FFmpegPCMAudio(filename, **ffmpeg_options),
-                data=data,
-                options=options,
-            )
+                return cls(
+                    discord.FFmpegPCMAudio(filename, **ffmpeg_options),
+                    data=data,
+                    options=options,
+                )
+        except Exception as e:
+            print(f"오류 발생: {e}")
 
 
 class Music(commands.Cog):
