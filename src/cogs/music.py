@@ -83,9 +83,9 @@ async def get_metadata_from_url_api(url: str):
                     return info["entries"][0] if "entries" in info else info
 
             loop = asyncio.get_event_loop()
-            data = await loop.run_in_executor(None, extract)
+            result_data = await loop.run_in_executor(None, extract)
 
-            return data
+            return result_data
     try:
         print("메타데이터 추출 중...")
         start = time.perf_counter()
@@ -127,17 +127,17 @@ class YTDLSource(discord.PCMVolumeTransformer):
                         _data = ydl.extract_info(url, download=not stream)
                         return _data["entries"][0] if "entries" in _data else _data
 
-                data = await loop.run_in_executor(None, extract)
+                result_data = await loop.run_in_executor(None, extract)
 
                 filename = (
-                    data["url"]
+                    result_data["url"]
                     if stream
-                    else yt_dlp.YoutubeDL(options).prepare_filename(data)
+                    else yt_dlp.YoutubeDL(options).prepare_filename(result_data)
                 )
 
                 return cls(
                     discord.FFmpegPCMAudio(filename, **ffmpeg_options),
-                    data=data,
+                    data=result_data,
                     options=options,
                 )
 
