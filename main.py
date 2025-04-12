@@ -1,5 +1,6 @@
 import os
 import sys
+import traceback
 
 import discord
 from discord.ext import commands
@@ -41,4 +42,10 @@ async def on_ready():
     print(f"{bot.user}에 로그인하였습니다!")
 
 
-bot.run(os.getenv("TOKEN"))
+if __name__ == "__main__":
+    try:
+        bot.run(os.getenv("TOKEN"))
+    except Exception as e:
+        print("치명적인 오류 발생. 봇을 종료합니다.")
+        traceback.print_exc()
+        sys.exit(1)
