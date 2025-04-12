@@ -349,6 +349,16 @@ class Music(commands.Cog):
                         self.bot.loop.create_task(self.play_next(vc, interaction))
 
                     vc.play(player, after=after_play)
+
+                    ffmpeg_process = getattr(player, "_process", None)
+                    if ffmpeg_process:
+                        async def monitor_ffmpeg_kill(process, timeout=20):
+                            await asyncio.sleep(timeout)
+                            if process and process.poll() is None:
+                                print("[WARNING] FFmpeg 프로세스 강제 종료됨 (timeout)")
+                                process.kill()
+                        await asyncio.create_task(monitor_ffmpeg_kill(ffmpeg_process, timeout=20))
+
                     await send_message(
                         interaction,
                         f"🎶 재생 중: **[{title}]({url})**",
