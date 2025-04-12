@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 
 from utils.cookie import TemporaryCookie
 from utils.message import send_message
+from utils.semaphore import yt_dlp_semaphore, ffmpeg_semaphore
 from utils.ytdl import ffmpeg_options, get_ytdl_options
 
 load_dotenv()
@@ -47,7 +48,8 @@ async def get_metadata_from_url_cli(url: str):
         print("메타데이터 추출 중...")
         start = time.perf_counter()
 
-        data = await asyncio.wait_for(job(), timeout=20)
+        async with yt_dlp_semaphore:
+            data = await asyncio.wait_for(job(), timeout=20)
 
         elapsed = int((time.perf_counter() - start) * 1000)
         print(f"메타데이터 추출 완료 (소요 시간: {elapsed}ms)")
@@ -88,7 +90,8 @@ async def get_metadata_from_url_api(url: str):
         print("메타데이터 추출 중...")
         start = time.perf_counter()
 
-        data = await asyncio.wait_for(job(), timeout=20)
+        async with yt_dlp_semaphore:
+            data = await asyncio.wait_for(job(), timeout=20)
 
         elapsed = int((time.perf_counter() - start) * 1000)
         print(f"메타데이터 추출 완료... (소요 시간: {elapsed}ms)")
@@ -112,12 +115,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
     @classmethod
     async def from_url(cls, url, *, loop=None, stream=False, data=None):
-        print("영상 재생 초기화 중...")
-        start = time.perf_counter()
-
-        loop = asyncio.get_event_loop()
-
-        try:
+        async def job():
             with TemporaryCookie() as cookiefile:
                 options = get_ytdl_options(cookiefile)
 
@@ -137,16 +135,31 @@ class YTDLSource(discord.PCMVolumeTransformer):
                     else yt_dlp.YoutubeDL(options).prepare_filename(data)
                 )
 
-                elapsed = int((time.perf_counter() - start) * 1000)
-                print(f"영상 재생 초기화 완료 (소요 시간: {elapsed}ms)")
-
                 return cls(
                     discord.FFmpegPCMAudio(filename, **ffmpeg_options),
                     data=data,
                     options=options,
                 )
+
+        try:
+            print("영상 재생 초기화 중...")
+            start = time.perf_counter()
+
+            loop = asyncio.get_event_loop()
+
+            async with ffmpeg_semaphore:
+                data = await asyncio.wait_for(job(), timeout=20)
+
+            elapsed = int((time.perf_counter() - start) * 1000)
+            print(f"영상 재생 초기화 완료 (소요 시간: {elapsed}ms)")
+
+            return data
+        except asyncio.TimeoutError:
+            print("영상 재생 초기화 실패: Timeout")
+            return None
         except Exception as e:
-            print(f"오류 발생: {e}")
+            print(f"영상 재생 초기화 실패: {e}")
+            return None
 
 
 class Music(commands.Cog):
