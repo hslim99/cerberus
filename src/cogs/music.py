@@ -2,7 +2,7 @@ import asyncio
 import json
 import re
 import time
-from typing import Tuple
+from typing import Tuple, Optional
 
 import discord
 import yt_dlp
@@ -142,6 +142,7 @@ class Music(commands.Cog):
         self.current = None
         self.force_stop = False
         self.playing_task = False
+        self.leave_task: Optional[asyncio.Task] = None
 
     async def leave_channel(
         self, guild: discord.Guild, interaction: discord.Interaction = None
@@ -246,6 +247,14 @@ class Music(commands.Cog):
         if not vc or not vc.is_connected():
             vc = await voice_channel.connect()
 
+        if self.leave_task and not self.leave_task.done():
+            self.leave_task.cancel()
+            try:
+                await self.leave_task
+            except asyncio.CancelledError:
+                pass
+        self.leave_task = None
+
         await interaction.response.defer()
 
         try:
@@ -337,7 +346,18 @@ class Music(commands.Cog):
                         )
         if not self.queue and not self.playing_task:
             self.current = None
-            await self.leave_channel(interaction.guild)
+            self.leave_task = asyncio.create_task(self.wait_and_leave(interaction.guild))
+            # await self.leave_channel(interaction.guild)
+
+    async def wait_and_leave(self, guild):
+        wait_sec = 120
+        try:
+            await asyncio.sleep(wait_sec)
+            if not self.queue and not self.current:
+                await self.leave_channel(guild)
+        except asyncio.CancelledError:
+            pass
+        self.leave_task = None
 
     @app_commands.command(name="skip", description="현재 재생 중인 곡을 스킵합니다.")
     async def skip(self, interaction: discord.Interaction):
