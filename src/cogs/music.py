@@ -213,11 +213,22 @@ class Music(commands.Cog):
         self.force_stop = False
         self.playing_task = True
 
+        voice_channel = interaction.user.voice.channel
+        vc = discord.utils.get(self.bot.voice_clients, guild=interaction.guild)
+
         if not interaction.user.voice or not interaction.user.voice.channel:
             await send_message(
                 interaction, "⚠️ 먼저 음성 채널에 참가해주세요.", ephemeral=True
             )
             return
+
+        if vc and vc.is_connected():
+            user_channel = interaction.user.voice.channel if interaction.user.voice else None
+            if user_channel and vc.channel != user_channel and self.current:
+                await send_message(
+                    interaction, "⚠️ 봇이 이미 다른 채널에 있어요.", ephemeral=True
+                )
+                return
 
         if len(self.queue) >= 10:
             await send_message(
@@ -231,9 +242,6 @@ class Music(commands.Cog):
                 interaction, "❌ 유효한 YouTube URL이 아닙니다.", ephemeral=True
             )
             return
-
-        voice_channel = interaction.user.voice.channel
-        vc = discord.utils.get(self.bot.voice_clients, guild=interaction.guild)
 
         if not vc or not vc.is_connected():
             vc = await voice_channel.connect()
@@ -328,6 +336,7 @@ class Music(commands.Cog):
                             interaction, f"오류 발생: {e}", followup=True
                         )
         if not self.queue and not self.playing_task:
+            self.current = None
             await self.leave_channel(interaction.guild)
 
     @app_commands.command(name="skip", description="현재 재생 중인 곡을 스킵합니다.")
