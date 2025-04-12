@@ -96,7 +96,7 @@ async def get_metadata_from_url_api(url: str):
         return data
     except asyncio.TimeoutError:
         print("메타데이터 추출 실패: Timeout")
-        return None
+        return {}
     except Exception as e:
         print(f"메타데이터 추출 실패: {e}")
         return {}
