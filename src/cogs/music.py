@@ -225,11 +225,14 @@ class Music(commands.Cog):
 
         if vc and vc.is_connected():
             user_channel = interaction.user.voice.channel if interaction.user.voice else None
-            if user_channel and vc.channel != user_channel and self.current:
-                await send_message(
-                    interaction, "⚠️ 봇이 이미 다른 채널에 있어요.", ephemeral=True
-                )
-                return
+            if user_channel and vc.channel != user_channel:
+                if self.current:
+                    await send_message(
+                        interaction, "⚠️ 봇이 이미 다른 채널에 있어요.", ephemeral=True
+                    )
+                    return
+                else:
+                    vc = await voice_channel.connect()
 
         if len(self.queue) >= 10:
             await send_message(
