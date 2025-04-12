@@ -232,6 +232,7 @@ class Music(commands.Cog):
                     )
                     return
                 else:
+                    await vc.disconnect()
                     vc = await voice_channel.connect()
 
         if len(self.queue) >= 10:
