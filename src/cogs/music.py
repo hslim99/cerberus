@@ -20,10 +20,7 @@ MAX_MIN = 30
 
 
 async def get_metadata_from_url_cli(url: str):
-    try:
-        print("메타데이터 추출 중...")
-        start = time.perf_counter()
-
+    async def job():
         with TemporaryCookie() as cookiefile:
             cmd = [
                 "yt-dlp",
@@ -41,24 +38,31 @@ async def get_metadata_from_url_cli(url: str):
 
             stdout, stderr = await process.communicate()
 
-            elapsed = int((time.perf_counter() - start) * 1000)
-            print(f"메타데이터 추출 완료 (소요 시간: {elapsed}ms)")
-
             if process.returncode != 0:
                 raise Exception(stderr.decode().strip())
 
-            data = json.loads(stdout)
-            return data["entries"][0] if "entries" in data else data
+            return json.loads(stdout)
+
+    try:
+        print("메타데이터 추출 중...")
+        start = time.perf_counter()
+
+        data = await asyncio.wait_for(job(), timeout=20)
+
+        elapsed = int((time.perf_counter() - start) * 1000)
+        print(f"메타데이터 추출 완료 (소요 시간: {elapsed}ms)")
+
+        return data["entries"][0] if "entries" in data else data
+    except asyncio.TimeoutError:
+        print("메타데이터 추출 실패: Timeout")
+        return None
     except Exception as e:
         print(f"(메타데이터 추출 실패: {e})")
         return None
 
 
 async def get_metadata_from_url_api(url: str):
-    try:
-        print("메타데이터 추출 중...")
-        start = time.perf_counter()
-
+    async def job():
         with TemporaryCookie() as cookiefile:
             options = get_ytdl_options(cookiefile)
             options.update(
@@ -79,10 +83,20 @@ async def get_metadata_from_url_api(url: str):
             loop = asyncio.get_event_loop()
             data = await loop.run_in_executor(None, extract)
 
-            elapsed = int((time.perf_counter() - start) * 1000)
-            print(f"메타데이터 추출 완료... (소요 시간: {elapsed}ms)")
             return data
+    try:
+        print("메타데이터 추출 중...")
+        start = time.perf_counter()
 
+        data = await asyncio.wait_for(job(), timeout=20)
+
+        elapsed = int((time.perf_counter() - start) * 1000)
+        print(f"메타데이터 추출 완료... (소요 시간: {elapsed}ms)")
+
+        return data
+    except asyncio.TimeoutError:
+        print("메타데이터 추출 실패: Timeout")
+        return None
     except Exception as e:
         print(f"메타데이터 추출 실패: {e}")
         return {}
