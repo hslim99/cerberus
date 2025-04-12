@@ -225,7 +225,7 @@ class Music(commands.Cog):
             )
             return
 
-        p = re.compile(r"^(https?://)?(www\.)?(youtube\.com|youtu\.be)/.+$")
+        p = re.compile(r"^(https?://)?(www\.|m\.)?(youtube\.com|youtu\.be)/.+$")
         if not p.match(url):
             await send_message(
                 interaction, "❌ 유효한 YouTube URL이 아닙니다.", ephemeral=True
