@@ -78,6 +78,14 @@ async def get_metadata_from_url_api(url: str):
                 }
             )
 
+            options.pop("extractor_args", None)
+            options["extractor_args"] = {"youtube": {"player_client": ["web"]}}
+            options.setdefault("http_headers", {})
+            options["http_headers"]["User-Agent"] = (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+            )
+
             def extract():
                 with yt_dlp.YoutubeDL(options) as ydl:
                     info = ydl.extract_info(url, download=False)
