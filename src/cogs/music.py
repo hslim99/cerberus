@@ -4,6 +4,9 @@ import re
 import time
 from typing import Tuple, Optional
 
+import os
+import shutil
+
 import discord
 import yt_dlp
 from discord import app_commands
@@ -18,6 +21,10 @@ from utils.ytdl import ffmpeg_options, get_ytdl_options
 load_dotenv()
 
 MAX_MIN = 30
+
+FFMPEG_BIN = shutil.which("ffmpeg") or "/usr/bin/ffmpeg"
+FFMPEG_DIR = os.path.dirname(FFMPEG_BIN) if FFMPEG_BIN else None
+PLAYER_CLIENTS = os.getenv("YT_PLAYER_CLIENTS", "web,android,ios").split(",")
 
 
 async def get_metadata_from_url_cli(url: str):
@@ -67,6 +74,9 @@ async def get_metadata_from_url_api(url: str):
     async def job():
         with TemporaryCookie() as cookiefile:
             options = get_ytdl_options(cookiefile)
+            options.setdefault("ffmpeg_location", FFMPEG_DIR)
+            options["extractor_args"] = {"youtube": {"player_client": [PLAYER_CLIENTS[0]]}}
+
             options.update(
                 {
                     "skip_download": True,
@@ -78,9 +88,8 @@ async def get_metadata_from_url_api(url: str):
             )
 
             def extract():
-                with yt_dlp.YoutubeDL(options) as ydl:
-                    info = ydl.extract_info(url, download=False)
-                    return info["entries"][0] if "entries" in info else info
+                info = _extract_with_client_fallback(url, options)
+                return info["entries"][0] if "entries" in info else info
 
             loop = asyncio.get_event_loop()
             result_data = await loop.run_in_executor(None, extract)
@@ -103,6 +112,25 @@ async def get_metadata_from_url_api(url: str):
     except Exception as e:
         print(f"메타데이터 추출 실패: {e}")
         return {}
+
+
+def _extract_with_client_fallback(url: str, base_opts: dict):
+    last_err = None
+    for client in PLAYER_CLIENTS:
+        opts = dict(base_opts)
+        opts["extractor_args"] = {"youtube": {"player_client": [client]}}
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                fmts = [f for f in (info.get("formats") or []) if f.get("url")]
+                if not fmts:
+                    raise yt_dlp.utils.DownloadError("no playable formats (missing url)")
+                return info
+        except Exception as e:
+            last_err = e
+            continue
+    raise last_err
+
 
 
 class YTDLSource(discord.PCMVolumeTransformer):
