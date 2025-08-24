@@ -49,7 +49,7 @@ async def get_metadata_from_url_cli(url: str):
         start = time.perf_counter()
 
         async with yt_dlp_semaphore:
-            data = await asyncio.wait_for(job(), timeout=20)
+            data = await asyncio.wait_for(job(), timeout=30)
 
         elapsed = int((time.perf_counter() - start) * 1000)
         print(f"메타데이터 추출 완료 (소요 시간: {elapsed}ms)")
@@ -74,16 +74,7 @@ async def get_metadata_from_url_api(url: str):
                     "no_check_certificate": True,
                     "quiet": True,
                     "no_warnings": True,
-                    "extractor_args": {"youtube": {"player_client": ["web"]}},
                 }
-            )
-
-            options.pop("extractor_args", None)
-            options["extractor_args"] = {"youtube": {"player_client": ["web"]}}
-            options.setdefault("http_headers", {})
-            options["http_headers"]["User-Agent"] = (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
             )
 
             def extract():
