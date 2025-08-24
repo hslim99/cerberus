@@ -20,7 +20,7 @@ from utils.ytdl import ffmpeg_options, get_ytdl_options
 
 load_dotenv()
 
-MAX_MIN = 30
+MAX_MIN = 300
 
 FFMPEG_BIN = shutil.which("ffmpeg") or "/usr/bin/ffmpeg"
 FFMPEG_DIR = os.path.dirname(FFMPEG_BIN) if FFMPEG_BIN else None
