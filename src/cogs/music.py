@@ -116,9 +116,22 @@ async def get_metadata_from_url_api(url: str):
 
 def _extract_with_client_fallback(url: str, base_opts: dict):
     last_err = None
-    for client in PLAYER_CLIENTS:
-        opts = dict(base_opts)
+    base = dict(base_opts)
+    base.pop("extractor_args", None)
+
+    order = ["web", "android", "ios"]
+    for client in order:
+        opts = dict(base)
         opts["extractor_args"] = {"youtube": {"player_client": [client]}}
+
+        if client == "web":
+            opts.setdefault("http_headers", {})
+            opts["http_headers"]["User-Agent"] = (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0 Safari/537.36"
+            )
+
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=False)
